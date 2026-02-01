@@ -1,0 +1,9 @@
+name: prompt-reminder
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.9
+  - pip
+  - pip:
+    - psutil>=5.9.0
