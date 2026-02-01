@@ -70,11 +70,22 @@ case "$TERMINAL_TYPE" in
         }
         add-zsh-hook precmd precmd_update_reminder
         
-        # Update periodically
-        TMOUT=5
-        TRAPALRM() {
-            update_iterm2_status
-        }
+        # Initial update
+        update_iterm2_status
+        
+        # Start continuous updater in background
+        (
+            while true; do
+                sleep 5
+                if [[ -f "$REMINDER_CACHE" ]]; then
+                    reminder=$(cat "$REMINDER_CACHE" 2>/dev/null)
+                    printf "\033]1337;SetUserVar=reminder=%s\a" "$(echo -n "$reminder" | base64)"
+                fi
+            done
+        ) &
+        
+        # Store PID for cleanup
+        ITERM_UPDATER_PID=$!
         
         echo "✨ iTerm2 status bar integration enabled!"
         echo "📋 Setup: iTerm2 → Preferences → Profiles → Session → Configure Status Bar"
@@ -118,6 +129,10 @@ start_reminder_daemon() {
 # Stop daemon when shell exits
 stop_reminder_daemon() {
     "$CONDA_ENV_PYTHON" "$REMINDER_SCRIPT" stop 2>/dev/null
+    # Kill iTerm updater if it exists
+    if [[ -n "$ITERM_UPDATER_PID" ]]; then
+        kill $ITERM_UPDATER_PID 2>/dev/null
+    fi
 }
 
 # Auto-start daemon
