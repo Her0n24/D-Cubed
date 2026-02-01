@@ -1,28 +1,122 @@
-# Dynamic Terminal Prompt Reminder 🎯
+# D3 (Dynamic Discovery Daemon) -- Dynamic Terminal Prompt Reminder 
 
-A Python-based terminal enhancement that displays rotating tips, useful commands, system information, and GitHub Copilot tips **as ghost text** (like IDE autocomplete) after your cursor. Reminders auto-refresh every 5 seconds!
+A context-aware terminal learning assistant that intelligently suggests commands and tips based on your project type and command history. Now enhanced with **GitHub Copilot AI integration** for dynamic, context-aware suggestions!
 
-## Features ✨
+## Features 
 
-- 👻 **Ghost Text Display**: Appears as grayed-out suggestion text after cursor (like IDE autocomplete)
-- ⏱️ **Auto-Refresh**: Updates every 5 seconds automatically
-- 🎲 **Random Reminders**: Continuously rotating tips and information
-- 💻 **System Info**: Shows CPU, RAM, and disk usage
+- 🎲 **Context Awareness**: Smart tips based on current directory, project type, and recent commands
+- 🤖 **AI-Powered**: GitHub Copilot CLI integration for dynamic command suggestions (optional)
 - 💡 **Command Tips**: Useful terminal shortcuts and commands
 - 🐧 **Linux Tips**: Essential Linux command reminders
-- 🤖 **GitHub Copilot Tips**: Maximize your Copilot usage
 - 🌿 **Git Commands**: Quick git command references
-- 🎨 **Subtle Design**: Light gray color that doesn't distract
+- ⌨️  **Terminal Tricks**: Productivity shortcuts and advanced techniques
 
-## Requirements 📋
+## Requirements 
 
-- **Zsh shell** (required for ghost text integration)
+- **Zsh shell** (required for status line/ above prompt integration)
 - Conda (Anaconda or Miniconda)
 - The installation script will automatically create a dedicated conda environment
 
-**Note**: This version uses Zsh's powerful line editor (ZLE) to display ghost text. Bash support may be added in future versions.
+- **iTerm2** (recommended for status bar integration. See Iterm2 Setup)
 
-## Installation 🚀
+## GitHub Copilot Integration (Optional)
+
+For AI-powered, context-aware command suggestions:
+
+1. **Install GitHub CLI** (if not already installed):
+   ```bash
+   brew install gh
+   ```
+
+2. **Authenticate with GitHub**:
+   ```bash
+   gh auth login
+   ```
+
+3. **Install Copilot CLI extension**:
+   ```bash
+   gh extension install github/gh-copilot
+   ```
+
+**No Copilot?** The system works with 200+ curated tips without it!
+
+## iTerm2 Status Bar Setup (Recommended) 
+
+For the best experience on macOS with iTerm2, follow these steps to display tips in a fixed status bar:
+
+### Step-by-Step Guide:
+
+1. **Open iTerm2 Preferences**
+   - Press `⌘,` (Command + Comma) 
+   - Or go to `iTerm2 → Preferences` from menu
+
+2. **Navigate to Profiles**
+   - Click on the **Profiles** tab at the top
+   - Select your current profile (usually "Default")
+
+3. **Go to Session Settings**
+   - Click on the **Session** tab in the profile settings
+
+4. **Enable Status Bar**
+   - Scroll down to find **Status bar enabled**
+   - Check the box ☑️ to enable it
+
+5. **Configure Status Bar**
+   - Click the **Configure Status Bar** button
+   - A configuration window will open showing:
+     - Available components (left side)
+     - Active components (bottom)
+
+6. **Add Interpolated String Component**
+   - Find **"Interpolated String"** in the available components list
+   - Drag it to the active components area at the bottom
+   - Position it where you want (left, center, or right)
+
+7. **Configure the Component**
+   - Double-click the **Interpolated String** component you just added
+   - In the "String Value" field, enter exactly:
+     ```
+     \(user.reminder)
+     ```
+   - **Important**: Include the backslash before the opening parenthesis
+   - Optionally adjust:
+     - **Max Width**: 80-100 characters (to prevent truncation)
+     - **Font**: Match your terminal font
+
+8. **Adjust Status Bar Position (Optional)**
+   - At the bottom of Configure Status Bar window:
+     - Choose **Top** or **Bottom** for status bar position
+     - Adjust background color/transparency if desired
+
+9. **Save and Close**
+   - Click **OK** to close the Configure Status Bar window
+   - Click **OK** again to close Preferences
+
+10. **Verify It's Working**
+    - You should now see tips appearing in your status bar
+    - Tips will update every 5 seconds automatically
+    - Try entering a Git repository to see context-aware Git tips!
+
+### Troubleshooting iTerm2 Setup:
+
+**Not seeing tips?**
+- Make sure you entered `\(user.reminder)` exactly (backslash before parenthesis)
+- Check daemon is running: `ps aux | grep prompt_reminder`
+- Restart daemon: `reminder-start`
+- Reload shell: `source ~/.zshrc`
+
+**Tips cut off?**
+- Increase Max Width in the Interpolated String settings
+- Use a smaller font size for status bar
+- Position the component where there's more space
+
+**Status bar not showing?**
+- Make sure "Status bar enabled" checkbox is checked
+- Try restarting iTerm2
+- Check you're editing the correct profile
+
+
+## Installation 
 
 ### Quick Install (Recommended)
 
@@ -46,33 +140,15 @@ A Python-based terminal enhancement that displays rotating tips, useful commands
 
    Or simply open a new terminal window.
 
-### Manual Install
+## Usage 
 
-If you prefer to set up the conda environment manually:
-
-```bash
-# Create conda environment
-conda env create -f environment.yml
-
-# Activate it
-conda activate prompt-reminder
-
-# Test the script
-python prompt_reminder.py
-```
-
-Then follow the Quick Install steps above.
-
-## Usage 📖
-
-Once installed, you'll see reminders appear as **ghost text** (light gray) after your cursor as you type. The reminders automatically update every 5 seconds in the background!
+Once installed, you'll see reminders above prompt. The reminders automatically update every 5 seconds in the background.
 
 The reminders rotate through:
 - Keyboard shortcuts (Ctrl+R, Ctrl+L, etc.)
 - Linux commands (df, grep, find, etc.)
 - Git commands (status, log, diff, etc.)
 - GitHub Copilot tips
-- System resource usage (CPU, RAM, Disk)
 
 ### Example Visual
 
@@ -91,52 +167,7 @@ reminder-stop    # Stop the daemon
 reminder-get     # Get current reminder
 ```
 
-## Testing Without Installation 🧪
-
-You can test the reminder system:
-
-```bash
-# Activate the conda environment
-conda activate prompt-reminder
-
-# Get a single reminder
-python prompt_reminder.py get
-
-# Run daemon in foreground (Ctrl+C to stop)
-python prompt_reminder.py daemon
-
-# Or start daemon in background
-python prompt_reminder.py start
-
-# Stop background daemon
-python prompt_reminder.py stop
-```
-
-## Customization 🎨
-
-Edit `prompt_reminder.py` to customize:
-
-- **Add your own reminders**: Edit the lists at the top of the file
-  - `USEFUL_COMMANDS`
-  - `LINUX_TIPS`
-  - `GITHUB_COPILOT_TIPS`
-  - `GIT_COMMANDS`
-
-- **Change colors**: Modify the `Colors` class
-
-- **Adjust probability**: Change the 0.7 value in `get_random_reminder()` to control how often system info appears (currently 30%)
-
-### Example: Adding Your Own Tip
-
-```python
-USEFUL_COMMANDS = [
-    "💡 Tip: Use 'Ctrl+R' to search command history",
-    "💡 Tip: Your custom tip here",  # Add this line
-    # ... rest of the tips
-]
-```
-
-## Uninstallation 🗑️
+## Uninstallation 
 
 To remove the dynamic prompt reminder:
 
@@ -156,72 +187,8 @@ To remove the dynamic prompt reminder:
 
 Or manually remove the "Dynamic Prompt Reminder" section from your `.bashrc` or `.zshrc` file.
 
-## Managing the Conda Environment 🐍
 
-### List all conda environments
-```bash
-conda env list
-```
-
-### Activate the environment manually
-```bash
-conda activate prompt-reminder
-```
-
-### Update dependencies
-```bash
-conda activate prompt-reminder
-conda env update -f environment.yml
-```
-
-### Remove the environment
-```bash
-conda env remove -n prompt-reminder
-```
-
-## Troubleshooting 🔧
-
-### "Conda not found" error
-Install Anaconda or Miniconda from:
-- Anaconda: https://www.anaconda.com/download
-- Miniconda: https://docs.conda.io/en/latest/miniconda.html
-
-### "No module named 'psutil'" error
-The conda environment should handle this automatically. If you still see this error:
-```bash
-conda activate prompt-reminder
-pip install psutil
-```
-
-### Prompt appears twice
-This might happen if you have multiple prompt commands. Check your shell config file for duplicate `PROMPT_COMMAND` or `precmd` definitions.
-
-### Reminders not showing
-1. Make sure the conda environment was created: `conda env list | grep prompt-reminder`
-2. Check the path in your `.bashrc` or `.zshrc` is correct
-3. Try running the script manually:
-   ```bash
-   conda activate prompt-reminder
-   python /full/path/to/prompt_reminder.py
-   ```
-
-## How It Works 🔍
-
-The system uses two components:
-
-1. **Background Daemon**: A Python process that updates a cache file every 5 seconds with a new random reminder
-2. **Zsh Integration**: Uses Zsh's line editor (ZLE) hooks to read the cache and display it as ghost text after your cursor
-
-The ghost text is displayed with a light gray color and appears automatically as you type, giving you a continuous stream of helpful reminders without interrupting your workflow.
-
-## Contributing 🤝
-
-Feel free to add your own tips and reminders to make this even more useful!
-
-## License 📄
+## License 
 
 Free to use and modify for your own purposes.
 
----
-
-**Enjoy your enhanced terminal experience! 🎉**

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Dynamic Terminal Prompt Reminder Daemon
-Continuously updates reminder cache file every 5 seconds
+Dynamic Terminal Prompt Discovery Daemon
+Continuously updates reminder cache file every 10 seconds
 """
 
 import random
@@ -10,7 +10,11 @@ import os
 import time
 import signal
 import sys
+import subprocess
+import json
+import base64
 from pathlib import Path
+from datetime import datetime, timedelta
 
 # Reminders database
 USEFUL_COMMANDS = [
@@ -284,6 +288,134 @@ GIT_COMMANDS = [
     "🌿 Git: 'git bisect start' - Binary search for bug introduction",
 ]
 
+# GitHub Copilot integration
+COPILOT_CACHE_FILE = Path.home() / '.cache' / 'prompt-reminder' / 'copilot_suggestions.json'
+COPILOT_CACHE_DURATION = 600  # Cache for 10 minutes
+COPILOT_SUGGESTIONS = []
+COPILOT_LAST_FETCH = None
+
+def is_gh_copilot_available():
+    """Check if GitHub CLI with Copilot extension is available"""
+    try:
+        result = subprocess.run(
+            ['gh', 'copilot', '--version'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
+        return False
+
+def get_context_prompt(context):
+    """Generate a context-aware prompt for GitHub Copilot"""
+    parts = ["Suggest a useful"]
+    
+    if context['is_git_repo']:
+        parts.append("git")
+    if context['is_python_project']:
+        parts.append("python")
+    if context['is_node_project']:
+        parts.append("node.js")
+    if context['is_docker_project']:
+        parts.append("docker")
+    
+    parts.append("command for terminal users.")
+    
+    # Add recent command context
+    if context['last_command_type']:
+        parts.append(f"Recent activity: {context['last_command_type']}")
+    
+    return " ".join(parts)
+
+def fetch_copilot_suggestions(context):
+    """Fetch command suggestions from GitHub Copilot CLI"""
+    global COPILOT_SUGGESTIONS, COPILOT_LAST_FETCH
+    
+    # Check cache validity
+    if COPILOT_LAST_FETCH and (datetime.now() - COPILOT_LAST_FETCH).seconds < COPILOT_CACHE_DURATION:
+        if COPILOT_SUGGESTIONS:
+            return COPILOT_SUGGESTIONS
+    
+    # Check if gh copilot is available
+    if not is_gh_copilot_available():
+        return []
+    
+    try:
+        # Generate context-aware prompt
+        prompt = get_context_prompt(context)
+        
+        # Call gh copilot suggest
+        result = subprocess.run(
+            ['gh', 'copilot', 'suggest', '-t', 'shell', prompt],
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        
+        if result.returncode == 0 and result.stdout:
+            # Parse copilot output
+            suggestions = parse_copilot_output(result.stdout)
+            
+            if suggestions:
+                COPILOT_SUGGESTIONS = suggestions
+                COPILOT_LAST_FETCH = datetime.now()
+                
+                # Cache to file
+                COPILOT_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+                with open(COPILOT_CACHE_FILE, 'w') as f:
+                    json.dump({
+                        'suggestions': suggestions,
+                        'timestamp': COPILOT_LAST_FETCH.isoformat()
+                    }, f)
+                
+                return suggestions
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
+        # Try to load from cache file
+        if COPILOT_CACHE_FILE.exists():
+            try:
+                with open(COPILOT_CACHE_FILE, 'r') as f:
+                    data = json.load(f)
+                    cached_time = datetime.fromisoformat(data['timestamp'])
+                    # Use cache even if old, better than nothing
+                    if data['suggestions']:
+                        return data['suggestions']
+            except:
+                pass
+    
+    return []
+
+def parse_copilot_output(output):
+    """Parse GitHub Copilot CLI output to extract suggestions"""
+    suggestions = []
+    
+    # Copilot output format varies, try to extract commands
+    lines = output.strip().split('\n')
+    
+    for line in lines:
+        line = line.strip()
+        
+        # Skip empty lines, headers, and prompts
+        if not line or line.startswith('Suggestion:') or line.startswith('?'):
+            continue
+        
+        # Look for command-like lines (typically start with $ or are indented)
+        if line.startswith('$'):
+            command = line[1:].strip()
+            suggestions.append(f"🤖 Copilot: {command}")
+        elif line.startswith('  ') and not line.startswith('  •'):
+            # Indented commands
+            command = line.strip()
+            if command and not command.startswith('#'):
+                suggestions.append(f"🤖 Copilot: {command}")
+        elif ' ' in line and not line[0].isspace():
+            # Try to detect command patterns
+            if any(line.startswith(cmd) for cmd in ['git ', 'docker ', 'npm ', 'python ', 'pip ', 'curl ', 'wget ']):
+                suggestions.append(f"🤖 Copilot: {line}")
+    
+    # Limit to 10 suggestions
+    return suggestions[:10]
+
 def get_cpu_info():
     """Get current CPU usage and temperature if available"""
     cpu_percent = psutil.cpu_percent(interval=0.1)
@@ -380,6 +512,9 @@ def detect_context():
 
 def get_weighted_reminder(context):
     """Get reminder with intelligent weighting based on context"""
+    # Fetch AI suggestions from GitHub Copilot (cached, non-blocking)
+    ai_suggestions = fetch_copilot_suggestions(context)
+    
     # Start with equal weights
     weights = {
         'git': 1.0,
@@ -388,6 +523,7 @@ def get_weighted_reminder(context):
         'tricks': 1.0,
         'copilot': 1.0,
         'useful': 1.0,
+        'ai': 3.0 if ai_suggestions else 0.0,  # Prefer AI suggestions when available
     }
     
     # Adjust weights based on context
@@ -408,6 +544,7 @@ def get_weighted_reminder(context):
     weighted_reminders.extend(TERMINAL_TRICKS * int(weights['tricks']))
     weighted_reminders.extend(GITHUB_COPILOT_TIPS * int(weights['copilot']))
     weighted_reminders.extend(USEFUL_COMMANDS * int(weights['useful']))
+    weighted_reminders.extend(ai_suggestions * int(weights['ai']))
     
     return random.choice(weighted_reminders)
 
@@ -447,7 +584,7 @@ def update_reminder():
         f.write(reminder)
 
 def daemon_loop():
-    """Main daemon loop - updates reminder every 5 seconds"""
+    """Main daemon loop - updates reminder every 10 seconds"""
     setup_cache()
     
     # Write PID file
@@ -468,7 +605,7 @@ def daemon_loop():
     try:
         while True:
             update_reminder()
-            time.sleep(5)
+            time.sleep(10)
     except KeyboardInterrupt:
         print("\nDaemon stopped")
         PID_FILE.unlink(missing_ok=True)
